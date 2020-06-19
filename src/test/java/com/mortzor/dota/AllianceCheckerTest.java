@@ -2,6 +2,8 @@ package com.mortzor.dota;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -15,7 +17,7 @@ class AllianceCheckerTest {
   // Change these
   private static int threads = 11;
   private static int printLinePer = 10000000;
-  private static int desiredSynergyLevel = 13;
+  private static int desiredSynergyLevel = 12;
 
 
   // current list of all allies. Comment a line out to not include them in the calculation
@@ -89,8 +91,8 @@ class AllianceCheckerTest {
   // Heroes that you deem must be included. Adding more to this list drastically reduces compute time.
   // If you want it to finish in a reasonable amount of time.
   // I recommend 4, though it takes me 10 minutes to run with 3.
+  private final List<String> reqHeroes = List.of("Legion", "Lycan", "Tiny", "Sven");
 
-  private final List<String> reqHeroes = List.of("Legion, Lycan, Tiny, Sven");
 
   private final List<Creature> requiredHeroes = new ArrayList<>();
   private final List<Creature> allHeroes = new ObjectMapper().readValue(allHeroesString, new TypeReference<>() {});
@@ -98,7 +100,7 @@ class AllianceCheckerTest {
   {
     allHeroes.forEach(h -> {
       if (reqHeroes.contains(h.getUnit())) {
-        requiredHeroes.add(h);
+        requiredHeroes.add(new Creature(h.getUnit(), h.getType1(), h.getType2(), h.getType3()));
       }
     });
   }
@@ -115,7 +117,7 @@ class AllianceCheckerTest {
     alliances.put("Brawny", 2);
     alliances.put("Brute", 2);
     alliances.put("Champion", 1);
-    alliances.put("Deadeye", 1);
+   // alliances.put("Deadeye", 1);
     alliances.put("Demon", 1);
     alliances.put("Dragon", 2);
     alliances.put("Druid", 2);
@@ -158,13 +160,14 @@ class AllianceCheckerTest {
     LinkedBlockingQueue<byte[]> currentListToExecute = new LinkedBlockingQueue<>(10000);
 
     new Thread(() -> generate((byte) heroArray.length, (byte) ((byte) 10 - requiredHeroes.size()), currentListToExecute)).start();
-    doSleep(1000);
+    doSleep(10000);
 
     Runnable r = () -> {
       while (!currentListToExecute.isEmpty()) {
         try {
           operateOnList(currentListToExecute.poll(10, TimeUnit.SECONDS));
         } catch (NoSuchElementException | InterruptedException ignored) {
+          System.out.println(ignored);
         }
       }
     };
@@ -211,7 +214,10 @@ class AllianceCheckerTest {
 
   private void operateOnList(byte[] sublist) {
     final StringBuilder out = new StringBuilder(Thread.currentThread().getName()).append("= ");
-
+    if (sublist == null) {
+      System.out.println("None exist");
+      return;
+    }
     final Map<String, Integer> combos = new HashMap<>();
     // Add computed heroes to list
     for (int i : sublist) {
@@ -234,7 +240,7 @@ class AllianceCheckerTest {
       String alliance = entry.getKey();
       Integer num = entry.getValue();
       if (alliances.containsKey(alliance) && num >= alliances.get(alliance)) {
-        out.append(String.format("%s:%d,", alliance, num));
+        out.append(alliance).append(":").append(num);
         synergies++;
       }
     }
@@ -247,7 +253,7 @@ class AllianceCheckerTest {
   }
 
   private void addToCombo(Map<String, Integer> combos, String alliance) {
-    if (alliance != null && !alliance.equals("")) {
+    if (alliance != null) {
       combos.merge(alliance, 1, Integer::sum);
     }
   }
@@ -260,12 +266,20 @@ class AllianceCheckerTest {
   }
 }
 
-
+@NoArgsConstructor
 class Creature {
   public String unit;
   public String type1;
   public String type2;
   public String type3;
+
+  public Creature(String unit, String type1, String type2, String type3) {
+    this.unit = unit == "" ? null : unit;
+    this.type1 = type1 == "" ? null : type1;
+    this.type2 = type2 == "" ? null : type2;
+    this.type3 = type3 == "" ? null : type3;
+  }
+
 
   public String getUnit() {
     return unit;
@@ -280,6 +294,22 @@ class Creature {
 
   public String getType3() {
     return type3;
+  }
+
+  public void setUnit(String unit) {
+    this.unit = unit == "" ? null : unit;
+  }
+
+  public void setType1(String type1) {
+    this.type1 = type1 == "" ? null : type1;
+  }
+
+  public void setType2(String type2) {
+    this.type2 = type2 == "" ? null : type2;
+  }
+
+  public void setType3(String type3) {
+    this.type3 = type3 == "" ? null : type3;
   }
 
   @Override
